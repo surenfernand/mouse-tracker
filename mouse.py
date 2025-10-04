@@ -10,7 +10,6 @@ from selenium.webdriver.edge.options import Options
 from selenium.webdriver.common.by import By
 import io
 import sys
-import platform
 
 # -----------------------------
 # WhatsApp / Selenium settings
@@ -23,41 +22,30 @@ high_activity_msg = "Hey, mouse activity is unusually high (over 5000px in 1 min
 # Edge WebDriver setup
 # -----------------------------
 driver_path = r"D:\msedgedriver.exe"
+temp_profile = r"D:\edge_temp_profile"
 
-# Function to download msedgedriver automatically
-def download_msedgedriver(dest_path):
+# Download msedgedriver if not found
+def download_msedgedriver(path):
+    if os.path.exists(path):
+        return
     print("msedgedriver.exe not found. Downloading...")
-    # Get latest version number
     version_url = "https://msedgedriver.azureedge.net/LATEST_STABLE"
     version = requests.get(version_url).text.strip()
-    print(f"Latest EdgeDriver version: {version}")
-
-    # Construct download URL based on OS
-    system_os = platform.system()
-    if system_os == "Windows":
-        url = f"https://msedgedriver.azureedge.net/{version}/edgedriver_win64.zip"
-    else:
-        print("Only Windows is supported in this script.")
-        sys.exit(1)
-
-    r = requests.get(url)
+    system_os = "win64" if sys.maxsize > 2**32 else "win32"
+    download_url = f"https://msedgedriver.azureedge.net/{version}/edgedriver_{system_os}.zip"
+    r = requests.get(download_url)
     z = zipfile.ZipFile(io.BytesIO(r.content))
-    z.extract("msedgedriver.exe", os.path.dirname(dest_path))
-    print("msedgedriver.exe downloaded successfully.")
+    z.extract("msedgedriver.exe", os.path.dirname(path))
+    print("msedgedriver.exe downloaded.")
 
-# Download driver if not found
-if not os.path.isfile(driver_path):
-    download_msedgedriver(driver_path)
+download_msedgedriver(driver_path)
 
-# Edge profile for WhatsApp
-edge_profile = r"D:\whatsapp_profile"
-
-# Selenium headless setup
+# Selenium Edge options
 options = Options()
-options.add_argument("--headless")  # run without GUI
+options.add_argument(f"--user-data-dir={temp_profile}")  # temp profile
 options.add_argument("--disable-gpu")
-options.add_argument(f"--user-data-dir={edge_profile}")
-options.add_argument("--profile-directory=Default")
+options.add_argument("start-minimized")
+# options.add_argument("--headless")  # optional, headless often crashes with WhatsApp Web
 
 # Use Service object
 service = Service(driver_path)
@@ -65,13 +53,13 @@ driver = webdriver.Edge(service=service, options=options)
 
 # Open WhatsApp Web
 driver.get("https://web.whatsapp.com")
-time.sleep(10)  # wait for session to load
+time.sleep(5)  # scan QR on first run
 
 # -----------------------------
 # Mouse tracking settings
 # -----------------------------
-interval = 60           # check every 1 minute
-monitor_duration = 300  # total monitoring duration = 5 minutes
+interval = 10           # check every 10 seconds
+monitor_duration = 30  # total monitoring duration = 5 minutes
 
 print("Monitoring mouse movement continuously...")
 
